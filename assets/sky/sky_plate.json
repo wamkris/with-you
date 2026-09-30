@@ -1,0 +1,9 @@
+{
+ "source": "hilly_terrain_01_puresky",
+ "azSpan": 150,
+ "el0": -6,
+ "el1": 64,
+ "sunEl": 11.42578125,
+ "ref": 2.173119642881004,
+ "encoding": "reinhard-gamma2.2"
+}

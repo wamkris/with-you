@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>With You</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400&family=Hanken+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16201a; --ink-soft:#2a342d; --cream:#f5ecdb; --dawn:#dfe3e2;
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
+  --sans:'Hanken Grotesk',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+  color-scheme:light;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;overflow:hidden;background:var(--dawn);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+#world{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.veil{position:fixed;inset:0;background:var(--dawn);transition:opacity 2.4s ease;z-index:20;pointer-events:none}
+.veil.gone{opacity:0}
+
+/* words sit in the sky: dark ink with a soft halo of dawn light behind them */
+.halo{text-shadow:0 0 28px rgba(250,244,232,.75),0 0 2px rgba(250,244,232,.35)}
+.fade{opacity:0;transform:translateY(10px);transition:opacity 2.4s ease,transform 2.8s cubic-bezier(.2,.7,.2,1)}
+.show{opacity:1 !important;transform:none !important}
+.away{opacity:0 !important;transform:translateY(-12px) !important;pointer-events:none !important;transition:opacity 1.4s ease,transform 1.8s ease !important}
+
+.intro{position:fixed;left:0;right:0;top:0;z-index:3;pointer-events:none;
+  padding:calc(env(safe-area-inset-top,0px) + 60px) 28px 0;max-width:36rem}
+.mark{font-family:var(--serif);font-weight:400;font-size:1.25rem;letter-spacing:.02em}
+.line{font-family:var(--serif);font-weight:300;font-size:clamp(1.75rem,7.4vw,2.6rem);line-height:1.16;letter-spacing:-.008em;
+  margin:.9rem 0 0;max-width:21ch}
+
+.bottom{position:fixed;left:0;right:0;bottom:0;z-index:3;display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding:0 24px calc(env(safe-area-inset-bottom,0px) + 34px);pointer-events:none}
+.btn{pointer-events:auto;height:54px;min-width:min(300px,100%);padding:0 28px;border:0;border-radius:27px;background:var(--cream);color:var(--ink);
+  font:500 1.0625rem/1 var(--sans);letter-spacing:.01em;cursor:pointer;box-shadow:0 8px 30px rgba(20,28,22,.18)}
+.btn:hover{background:#fbf4e6}
+.btn:focus-visible,.cue:focus-visible,.sound:focus-visible,.quiet:focus-visible{outline:2px solid var(--cream);outline-offset:4px}
+
+.ask{position:fixed;left:0;right:0;top:0;z-index:3;pointer-events:none;padding:calc(env(safe-area-inset-top,0px) + 66px) 28px 0;max-width:36rem}
+.ask h1{margin:0;font-family:var(--serif);font-weight:300;font-size:clamp(2.4rem,11vw,3.5rem);line-height:1.02;letter-spacing:-.016em}
+.ask p{margin:.85rem 0 0;font-size:1.0625rem;line-height:1.45;max-width:30ch;color:var(--ink-soft)}
+.cue{position:fixed;z-index:3;left:50%;top:72%;transform:translate(-50%,0);min-height:44px;padding:11px 20px;border:0;border-radius:22px;
+  background:rgba(18,26,20,.42);color:var(--cream);font:500 .98rem/1.3 var(--sans);cursor:pointer;opacity:0;transition:opacity 1.6s ease;
+  white-space:nowrap;max-width:calc(100vw - 32px)}
+
+/* understanding: one large sentence in the sky, the rest below on the calm water */
+.insight{position:fixed;left:0;right:0;top:0;z-index:3;pointer-events:none;padding:calc(env(safe-area-inset-top,0px) + 64px) 28px 0;max-width:40rem}
+.insight .kicker{font-size:.8125rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 .9rem}
+.insight h2{margin:0;font-family:var(--serif);font-weight:300;font-size:clamp(2rem,8.6vw,3.3rem);line-height:1.1;letter-spacing:-.014em;max-width:17ch}
+.support{position:fixed;left:0;right:0;bottom:0;z-index:3;padding:64px 28px calc(env(safe-area-inset-bottom,0px) + 28px);
+  color:var(--cream);pointer-events:none;
+  background:linear-gradient(to top, rgba(12,18,15,.74), rgba(12,18,15,.5) 55%, rgba(12,18,15,0))}
+.support .inner{max-width:34rem}
+.support h3{margin:0 0 .3rem;font:500 .8125rem/1.3 var(--sans);letter-spacing:.12em;text-transform:uppercase;opacity:.8}
+.support p{margin:0 0 1.1rem;font-family:var(--serif);font-weight:400;font-size:1.125rem;line-height:1.45;max-width:34ch}
+.support .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:.4rem}
+.quiet{pointer-events:auto;height:48px;padding:0 22px;border-radius:24px;border:1px solid rgba(245,236,219,.5);background:transparent;color:var(--cream);
+  font:500 1rem/1 var(--sans);cursor:pointer}
+.quiet.solid{background:var(--cream);color:var(--ink);border-color:var(--cream)}
+
+.sound{position:fixed;z-index:4;top:calc(env(safe-area-inset-top,0px) + 12px);right:12px;width:44px;height:44px;border:0;border-radius:22px;
+  background:transparent;color:var(--ink);cursor:pointer;opacity:0;transition:opacity 1.5s ease;display:flex;align-items:center;justify-content:center;overflow:visible}
+.sound.on{opacity:.75}
+.sound .hint{position:absolute;right:46px;top:50%;transform:translateY(-50%);white-space:nowrap;font:500 .8125rem/1 var(--sans);letter-spacing:.02em;
+  color:var(--ink);opacity:0;transition:opacity 1.2s ease;pointer-events:none;text-shadow:0 0 16px rgba(250,244,232,.9)}
+.sound.waiting .hint{opacity:.85}
+.shot .sound .hint{display:none}
+.sound svg{width:22px;height:22px}
+.fallback{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:32px;z-index:30;background:var(--dawn)}
+.fallback p{max-width:26rem;font-family:var(--serif);font-size:1.3rem;line-height:1.4;margin:0}
+
+@media (min-width:900px){
+  .intro,.ask,.insight{padding-left:72px;padding-top:calc(env(safe-area-inset-top,0px) + 84px)}
+  .support{padding-left:72px;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 44px)}
+  .bottom{padding-bottom:calc(env(safe-area-inset-bottom,0px) + 48px)}
+}
+@media (prefers-reduced-motion:reduce){ .fade,.veil,.cue,.away{transition-duration:.01s !important} }
+</style>
+</head>
+<body>
+<canvas id="world" aria-label="A quiet valley at dawn: a still pool in a meadow, trees, birds, a butterfly and a squirrel on a rock"></canvas>
+
+<div class="intro" id="intro">
+  <div class="mark fade halo" id="mark">With You</div>
+  <p class="line fade halo" id="line">What if you had a companion that understood your life, remembered what matters, and helped you see clearly when you couldn’t?</p>
+</div>
+
+<div class="ask" id="ask" aria-live="polite">
+  <h1 class="fade halo" id="askH">What’s going on?</h1>
+  <p class="fade halo" id="askP">Say it however it comes out.</p>
+</div>
+
+<div class="insight" id="insight" aria-live="polite" hidden>
+  <p class="kicker fade halo" id="kicker">What I’m hearing</p>
+  <h2 class="fade halo" id="insightH">You’re not behind. You’ve been carrying more than one person’s worries at once.</h2>
+</div>
+<div class="support fade" id="support" hidden>
+  <div class="inner">
+    <h3>What matters most</h3>
+    <p>Your sister’s move and the deadline landed in the same week. Both are real, and neither is a failure.</p>
+    <h3>One small thing</h3>
+    <p>Tonight, write down the one thing that can wait until next week. Then let it wait.</p>
+    <div class="row">
+      <button class="quiet solid" id="keep" type="button">Keep talking</button>
+      <button class="quiet" id="back" type="button">Back to the water</button>
+    </div>
+  </div>
+</div>
+
+<div class="bottom">
+  <button class="btn fade" id="begin" type="button">Begin</button>
+</div>
+<button class="cue" id="cue" type="button" hidden>Touch the water to speak</button>
+
+<button class="sound" id="sound" type="button" aria-label="Sound" aria-pressed="true">
+  <span class="hint" aria-hidden="true">Tap for sound</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 9.5h3.2L12 5.5v13l-4.8-4H4z"></path>
+    <path id="waves" d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.8a7.4 7.4 0 0 1 0 10.4"></path>
+  </svg>
+</button>
+<div class="veil" id="veil"></div>
+<div class="fallback" id="fallback"><p>This place needs WebGL to come alive. Try opening it in a recent version of Safari, Chrome or Firefox.</p></div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+<script>
+// Never hang on a blank page. Opened straight from disk, browsers block the modules and asset loads,
+// so say how to open it; otherwise, if the valley hasn't come up in 25 s, say so instead of waiting silently.
+(function () {
+  function show(msg) {
+    var f = document.getElementById('fallback');
+    f.firstChild.textContent = msg; f.style.display = 'flex';
+    document.getElementById('veil').classList.add('gone');
+  }
+  if (location.protocol === 'file:' || location.protocol === 'data:') {
+    show('The valley has to be opened through its local server, not as a file. In the with-you folder run “node tools/serve.mjs”, then open http://localhost:5173');
+    return;
+  }
+  setTimeout(function () {
+    if (!(window.__valley && window.__valley.ready)) show('The valley didn’t finish loading. Reload the page; if it happens again, check the browser console for the error.');
+  }, 25000);
+})();
+</script>
+</body>
+</html>
