@@ -98,7 +98,7 @@ export function makeWater(scene, quality, camera) {
         vec3 body = mix(uDeep, uShallow, T)*(uSunCol*0.12 + vec3(0.08));
         // sun glints
         vec3 Hh = normalize(uSunDir + V);
-        float spec = pow(max(dot(n, Hh), 0.0), 1400.0)*30.0 + pow(max(dot(n, Hh), 0.0), 160.0)*0.25;
+        float spec = pow(max(dot(n, Hh), 0.0), 700.0)*9.0 + pow(max(dot(n, Hh), 0.0), 120.0)*0.3;
         vec3 col = refl*F + body*(1.0 - F)*(1.0 - T);
         col += uSunCol*spec*(1.0 - uCalm*0.4);
         // blend so the bottom shows through in the shallows, and the edge fades to nothing
@@ -110,7 +110,7 @@ export function makeWater(scene, quality, camera) {
   };
   const w = Math.floor(innerWidth * quality.dpr * quality.reflScale), h = Math.floor(innerHeight * quality.dpr * quality.reflScale);
   const water = new Reflector(new THREE.PlaneGeometry(X1 - X0, Z1 - Z0), {
-    clipBias: 0.002, textureWidth: w, textureHeight: h, color: 0xffffff, shader, multisample: quality.tier === 'low' ? 0 : 4,
+    clipBias: 0.002, textureWidth: w, textureHeight: h, color: 0xffffff, shader, multisample: 0,   // ripples blur the mirror anyway; multisampling it is wasted work
   });
   const rt = water.getRenderTarget();
   rt.texture.minFilter = THREE.LinearFilter;

@@ -48,7 +48,8 @@ function grassMaterial(atlas, key, tint, trans) {
         vec3 lp = vec3(position.x*aP.y, t*aP.z, position.z*aP.y);
         lp = vec3(cr*lp.x + sr*lp.z, lp.y, -sr*lp.x + cr*lp.z);
         float g = gustAt(aOff.xz);
-        float sway = sin(uTime*1.6 + aOff.x*0.6 + aOff.z*0.45)*0.09 + sin(uTime*2.7 + aP.w*20.0)*0.03 + g*0.7;
+        // a slow travelling swell and gusts that lean the grass over; no fast per-blade jitter
+        float sway = sin(uTime*1.1 + aOff.x*0.35 + aOff.z*0.25)*0.07 + sin(uTime*1.7 + aP.w*20.0)*0.012 + g*0.32;
         sway *= windK();
         float b = sway*t*t*aP.z;
         lp.xz += uWind*b;
@@ -69,6 +70,8 @@ function grassMaterial(atlas, key, tint, trans) {
         }
         diffuseColor.rgb *= mix(vec3(0.78,0.92,0.62), vec3(1.12,1.04,0.86), vVar);
         diffuseColor.rgb *= mix(0.3, 1.0, smoothstep(0.0, 0.55, vT));   // shade deep in the sward
+        // no blade is paler than real grass: cap the albedo so nothing flashes white as it moves
+        diffuseColor.rgb *= min(1.0, 0.16/max(dot(diffuseColor.rgb, vec3(0.3,0.59,0.11)), 1e-3));
         diffuseColor.a = clamp((diffuseColor.a - 0.45)/max(fwidth(diffuseColor.a), 1e-4) + 0.5, 0.0, 1.0);`],
       ['#include <lights_physical_pars_fragment>', '#include <lights_physical_pars_fragment>\n' + FOLIAGE_DIRECT],
       ['#include <aomap_fragment>', '#include <aomap_fragment>\n// blades scatter light; a low sun must not glint off them like wet plastic\nreflectedLight.indirectSpecular *= 0.25; reflectedLight.directSpecular *= 0.12;'],
@@ -145,7 +148,8 @@ export function makeGrass(scene, tex, atlasRects, quality, avoid) {
     if (fbm(x * 0.45 + 9, z * 0.45, 3) < 0.47) continue;
     if (Math.hypot(x - 0.15, z - 5.2) < 2.4) continue;       // keep the touch spot open
     if (x > -3.0 && x < 3.6 && z > 5.0) continue;             // and the view from where the person stands
-    const src = blades[Math.floor(R() * blades.length)];
+    const reedSet = green.length >= 3 ? green : blades;   // green reeds only: pale blades flash white against the dark bank
+    const src = reedSet[Math.floor(R() * reedSet.length)];
     const ht = 0.9 + R() * 0.9;
     off.push(x, y - 0.05, z);
     p.push(R() * 6.283, Math.max(ht * src.w / src.h * 2, 0.035), ht, R());
@@ -161,7 +165,7 @@ export function makeGrass(scene, tex, atlasRects, quality, avoid) {
     L.p.push(p[i * 4], p[i * 4 + 1], p[i * 4 + 2], p[i * 4 + 3]);
     L.rect.push(rect[i * 4], rect[i * 4 + 1], rect[i * 4 + 2], rect[i * 4 + 3]);
   }
-  const mat = grassMaterial(tex.grass_atlas, 'grass', new THREE.Color(0.72, 0.9, 0.52), new THREE.Color(0.6, 0.75, 0.2));
+  const mat = grassMaterial(tex.grass_atlas, 'grass', new THREE.Color(0.72, 0.9, 0.52), new THREE.Color(0.42, 0.55, 0.14));
   const group = new THREE.Group(); group.name = 'grass';
   let count = 0;
   for (const [name, L] of Object.entries(lod)) {

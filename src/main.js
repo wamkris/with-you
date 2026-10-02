@@ -15,6 +15,7 @@ import { startAudio, toggleMute, updateAudio, scheduleBird, onAudioState } from 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const SHOT = params.get('shot');                     // arrival | speak | listen | understand (screenshot harness)
+const PLAY = params.get('play');                     // same moments, but otherwise the normal live page (motion tests)
 // look-dev knobs, e.g. ?exp=1.1&sky=0.5&bloom=0.2
 const knob = (k, d) => (params.has(k) ? +params.get(k) : d);
 const LOOK = { exp: knob('exp', 1.0), sky: knob('sky', 0.5), bloom: knob('bloom', 0.22), env: knob('env', 0.6), sun: knob('sun', 3.4) };
@@ -31,6 +32,8 @@ renderer.setPixelRatio(quality.dpr);
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;   // r186: PCF is soft (PCFSoft was removed)
+// The sun doesn't move and the shadow pass ignores wind sway, so the shadow map is drawn once, not every frame.
+renderer.shadowMap.autoUpdate = false;
 renderer.toneMapping = THREE.NoToneMapping;          // tone mapping happens in the grade pass
 const status = { ready: false, quality: quality.tier, gpu: quality.gpu, frames: 0, avgMs: 0 };
 window.__valley = status;
@@ -221,11 +224,12 @@ window.WithYou = { startAudio: () => startAudio(() => $('sound').classList.add('
 
 /* ---------- resize ---------- */
 const baseDpr = quality.dpr;
-let dprScale = 1, lastAdapt = 0;
+let lastAdapt = 0, adaptSteps = 0;
 function onResize() {
   renderer.setPixelRatio(quality.dpr);
   if (world) world.post.composer.setPixelRatio(quality.dpr);
   renderer.setSize(innerWidth, innerHeight, false);
+  renderer.shadowMap.needsUpdate = true;
   setFov();
   if (world) { world.post.resize(innerWidth, innerHeight); world.water.resize(innerWidth, innerHeight); world.motes.uPx.value = innerHeight * quality.dpr; }
 }
@@ -234,6 +238,7 @@ addEventListener('resize', onResize);
 /* ---------- life loop ---------- */
 const clock = new THREE.Clock();
 let nextDrop = 3, first = true, lineK = 0, restK = 0;
+const cueV = new THREE.Vector3(), cueEl = $('cue'); let cueX = -1, cueY = -1;
 const bflyHome = new THREE.Vector3(-0.5, 1.25, 7.9), bflyArrive = new THREE.Vector3(0.4, 1.7, 15);
 const frameTimes = [];
 function frame() {
@@ -270,17 +275,18 @@ function frame() {
     world.squirrel.update(t, calm);
     world.ring.show.value += (((phase === 'home' && !listening) ? 1 : 0) - world.ring.show.value) * Math.min(dt * 1.5, 1);
     if (phase === 'home') {
-      const v = RING_SPOT.clone().project(camera);
-      const cx = (v.x * 0.5 + 0.5) * innerWidth, cy = (1 - (v.y * 0.5 + 0.5)) * innerHeight;
-      const c = $('cue'); c.style.left = Math.min(Math.max(cx, 150), innerWidth - 150) + 'px'; c.style.top = Math.min(cy + 44, innerHeight - 96) + 'px';
+      // follow the ring with a compositor-only transform (no page layout), and only when it has really moved
+      const v = cueV.copy(RING_SPOT).project(camera);
+      const cx = Math.min(Math.max((v.x * 0.5 + 0.5) * innerWidth, 150), innerWidth - 150), cy = Math.min((1 - (v.y * 0.5 + 0.5)) * innerHeight + 44, innerHeight - 96);
+      if (Math.abs(cx - cueX) > 0.5 || Math.abs(cy - cueY) > 0.5) { cueX = cx; cueY = cy; cueEl.style.transform = `translate3d(${cx.toFixed(1)}px,${cy.toFixed(1)}px,0) translate(-50%,0)`; }
     }
     // light: a touch dimmer while listening (≈8%), warmer and clearer when understanding
     const g = world.post.grade.uniforms;
     g.uTime.value = t; g.uWarm.value = U.uWarm.value;
     g.uExp.value = LOOK.exp * (1.0 - (listening ? calm : 0) * 0.08) * (1 + U.uWarm.value * 0.05);
     world.post.bloom.strength = LOOK.bloom * (1 - calm * 0.2 + U.uWarm.value * 0.15);
-    updateAudio(camera.position);
-    if (quality.tier !== 'high') { renderer.shadowMap.autoUpdate = false; if (status.frames % 2 === 0) renderer.shadowMap.needsUpdate = true; }
+    if (status.frames % 6 === 0) updateAudio(camera.position);
+    if (status.frames < 3) renderer.shadowMap.needsUpdate = true;
     world.post.composer.render(dt);
     if (first) {
       first = false;
@@ -291,11 +297,14 @@ function frame() {
     status.frames++;
     if (status.frames > 30) { frameTimes.push(rawDt * 1000); if (frameTimes.length > 180) frameTimes.shift(); status.avgMs = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length; }
     // hold the frame rate: step render resolution down when frames run long, back up when there's headroom
-    if (!SHOT && frameTimes.length >= 120 && t - lastAdapt > 2.5) {
-      lastAdapt = t;
-      const next = status.avgMs > 18.5 ? Math.max(dprScale * 0.85, 0.6) : status.avgMs < 12 ? Math.min(dprScale / 0.85, 1) : dprScale;
-      if (next !== dprScale && Math.abs(baseDpr * next - quality.dpr) > 0.01) {
-        dprScale = next; quality.dpr = Math.max(baseDpr * dprScale, 0.75); status.dpr = quality.dpr;
+    // Only ever step down, only after sustained slowness (median over ~3 s, so one-off hitches don't count),
+    // at most twice, and never below 1.0 on a high-density screen: each change is a visible jump.
+    if (!SHOT && !params.has('fixdpr') && status.frames % 30 === 0 && frameTimes.length >= 180 && t - lastAdapt > 4 && adaptSteps < 2) {
+      const med = [...frameTimes].sort((a, b) => a - b)[frameTimes.length >> 1];
+      const floor = Math.min(baseDpr, (window.devicePixelRatio || 1) >= 2 ? 1.0 : 0.85);
+      if (med > 20 && quality.dpr > floor + 0.01) {
+        lastAdapt = t; adaptSteps++;
+        quality.dpr = Math.max(quality.dpr * 0.82, floor); status.dpr = quality.dpr;
         frameTimes.length = 0; onResize();
       }
     }
@@ -312,16 +321,17 @@ function reveal(instant) {
 }
 build().then(() => {
   requestAnimationFrame(frame);
-  if (!SHOT) { moveStart = 0.4; reveal(false); return; }
-  // screenshot harness: jump to a moment
-  document.body.classList.add('shot');
-  if (SHOT === 'arrival') { U.uTime.value = 1.0; moveStart = 0; reveal(true); }
+  const JUMP = SHOT || PLAY;
+  if (!JUMP) { moveStart = 0.4; reveal(false); return; }
+  // screenshot harness / motion tests: jump to a moment
+  if (SHOT) document.body.classList.add('shot');
+  if (JUMP === 'arrival') { U.uTime.value = 1.0; moveStart = 0; reveal(true); }
   else {
     $('intro').classList.add('away'); $('begin').hidden = true;
     from = to = shots.home; camP.copy(shots.home.p); camT.copy(shots.home.t); moveStart = -99;
     arriveHome(true);
-    if (SHOT === 'listen') { startListening(RING_SPOT); U.uCalm.value = 1; }
-    if (SHOT === 'understand') { from = to = shots.under; U.uWarm.value = 1; lineK = 1; restK = 1; U.uCalm.value = 0.55; toUnderstanding(true); }
+    if (JUMP === 'listen') { startListening(RING_SPOT); U.uCalm.value = 1; }
+    if (JUMP === 'understand') { from = to = shots.under; U.uWarm.value = 1; lineK = 1; restK = 1; U.uCalm.value = 0.55; toUnderstanding(true); }
   }
 }).catch(fail);
 void poolD;

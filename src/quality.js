@@ -14,11 +14,18 @@ export function pickQuality(gl) {
   const oldGPU = /Adreno \(TM\) [3-5]\d\d|Mali-[GT][0-7]\d\b|PowerVR|Apple A(9|10|11)\b|SwiftShader/i.test(gpu);
   if (tier === 'mid' && (oldGPU || cores <= 4 || mem <= 3)) tier = 'low';
   if (q === 'low' || q === 'mid' || q === 'high') tier = q;
-  const dprCap = { high: 1.75, mid: 1.5, low: 1.0 }[tier];
+  // Measured: a large desktop canvas only holds 60 fps at 1× (1.25× stutters). Phones have far fewer pixels, so 1.5× fits.
+  const dprCap = { high: 1.0, mid: 1.5, low: 1.0 }[tier];
   const base = {
-    high: { grass: 70000, reeds: 1600, leafMul: 1.0, farTrees: 120, flankTrees: 40, shrubs: 34, grassFar: 30000, canopyTrees: 170, motes: 420, msaa: 4, reflScale: 0.5, shadow: 2048, bloom: true },
+    high: { grass: 70000, reeds: 1600, leafMul: 1.0, farTrees: 120, flankTrees: 40, shrubs: 34, grassFar: 30000, canopyTrees: 170, motes: 420, msaa: 2, reflScale: 0.5, shadow: 2048, bloom: true },
     mid: { grass: 42000, reeds: 900, leafMul: 0.8, farTrees: 85, flankTrees: 28, shrubs: 26, grassFar: 15000, canopyTrees: 110, motes: 240, msaa: 4, reflScale: 0.4, shadow: 1536, bloom: true },
     low: { grass: 18000, reeds: 500, leafMul: 0.55, farTrees: 45, flankTrees: 16, shrubs: 14, grassFar: 6000, canopyTrees: 50, motes: 120, msaa: 0, reflScale: 0.3, shadow: 1024, bloom: false },
   }[tier];
-  return { tier, gpu, dpr: Math.min(window.devicePixelRatio || 1, dprCap), ...base };
+  const out = { tier, gpu, dpr: Math.min(window.devicePixelRatio || 1, dprCap), ...base };
+  // test knobs: ?dpr=1.25&msaa=2&bloom=0
+  const P = new URLSearchParams(location.search);
+  if (P.has('dpr')) out.dpr = +P.get('dpr');
+  if (P.has('msaa')) out.msaa = +P.get('msaa');
+  if (P.get('bloom') === '0') out.bloom = false;
+  return out;
 }

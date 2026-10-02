@@ -137,7 +137,7 @@ export function makeBirds(scene) {
       const lx = -52 + ((t * 4.2 + 20) % 124);
       lead.set(lx, 21 - lineK * 9.5 + Math.sin(t * 0.3) * 1.2 * (1 - lineK), -34 + Math.sin(t * 0.17) * 4);   // above the words; below the insight when in line
       birds.forEach(b => {
-        tmp.copy(lead).add(b.o.clone().lerp(b.line, lineK));
+        tmp.copy(b.o).lerp(b.line, lineK).add(lead);
         tmp.y += Math.sin(t * 0.8 + b.ph) * 0.35 * (1 - lineK) + calm * 22;
         tmp.x += Math.sin(t * 0.5 + b.ph) * 0.6 * (1 - lineK);
         if (tmp.distanceTo(b.prev) > 5) b.prev.copy(tmp).x -= 0.1;
@@ -185,6 +185,7 @@ export function makeButterfly(scene) {
   const body = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.002, 0.03, 5), new THREE.MeshStandardMaterial({ color: 0x15120e }));
   body.rotation.x = Math.PI / 2;
   g.add(wl, wr, body); scene.add(g);
+  const wanderV = new THREE.Vector3();
   const pos = new THREE.Vector3(0.4, 1.1, 12.8), prev = new THREE.Vector3(), tmp = new THREE.Vector3(), look = new THREE.Vector3();
   // a grass stem to settle on
   const land = new THREE.Vector3(1.9, 0, 8.6); land.y = H(land.x, land.z) + 0.58;
@@ -196,7 +197,7 @@ export function makeButterfly(scene) {
   scene.add(stem, head);
   return {
     update(t, dt, calm, center, rest) {
-      const wander = new THREE.Vector3(center.x + 1.4 * Math.sin(t * 0.37) + 0.5 * Math.sin(t * 1.3), center.y + 0.3 * Math.sin(t * 0.9) + 0.13 * Math.sin(t * 3.1), center.z + 1.4 * Math.sin(t * 0.23 + 1));
+      const wander = wanderV.set(center.x + 1.4 * Math.sin(t * 0.37) + 0.5 * Math.sin(t * 1.3), center.y + 0.3 * Math.sin(t * 0.9) + 0.13 * Math.sin(t * 3.1), center.z + 1.4 * Math.sin(t * 0.23 + 1));
       const settle = Math.max(calm, rest);
       const target = wander.lerp(land, settle);
       pos.lerp(target, Math.min(dt * 2.5, 1));
@@ -213,7 +214,7 @@ export function makeButterfly(scene) {
 /* ---------- light motes in the sunbeams ---------- */
 export function makeMotes(scene, quality) {
   const n = quality.motes, pos = [], dat = [];
-  for (let i = 0; i < n; i++) { pos.push((R() * 2 - 1) * 8, 0.3 + R() * 4.5, 1 + R() * 16); dat.push(R(), 1.0 + R() * 2.0); }
+  for (let i = 0; i < n; i++) { pos.push((R() * 2 - 1) * 9, 0.4 + R() * 4.0, -12 + R() * 17); dat.push(R(), 0.8 + R() * 1.2); }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('aD', new THREE.Float32BufferAttribute(dat, 2));
@@ -225,10 +226,13 @@ export function makeMotes(scene, quality) {
       void main(){ vec3 p = position; float ph = aD.x*6.2832;
         p.x += sin(uTime*0.23+ph)*0.45 + uWind.x*sin(uTime*0.11+ph)*0.6; p.y += sin(uTime*0.31+ph*1.3)*0.3; p.z += cos(uTime*0.19+ph*0.7)*0.45;
         vec3 V = normalize(p-cameraPosition); vB = pow(max(dot(V,uSunDir),0.0),6.0);
-        vec4 mv = viewMatrix*vec4(p,1.0); gl_Position = projectionMatrix*mv; gl_PointSize = aD.y*0.011*uPx/-mv.z; }`,
+        vec4 mv = viewMatrix*vec4(p,1.0); gl_Position = projectionMatrix*mv;
+        // fade out anything that drifts close to the eye, and cap the size so a mote is never a blob
+        vB *= smoothstep(3.0, 6.0, -mv.z);
+        gl_PointSize = min(aD.y*0.011*uPx/-mv.z, 0.006*uPx); }`,
     fragmentShader: GLSL_COMMON + /* glsl */`
       varying float vB; void main(){ float d = length(gl_PointCoord-0.5); float a = smoothstep(0.5,0.0,d);
-        gl_FragColor = vec4(uSunCol*vec3(1.0,0.9,0.72)*(0.08 + vB*3.0)*a*(1.0 - uCalm*0.4), 1.0); }`,
+        gl_FragColor = vec4(uSunCol*vec3(1.0,0.9,0.72)*(0.04 + vB*1.2)*a*(1.0 - uCalm*0.4), 1.0); }`,
     transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   }));
   pts.frustumCulled = false; scene.add(pts);

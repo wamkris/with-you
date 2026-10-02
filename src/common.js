@@ -66,7 +66,7 @@ float vnoise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
   return mix(mix(hash12(i),hash12(i+vec2(1.0,0.0)),f.x), mix(hash12(i+vec2(0.0,1.0)),hash12(i+vec2(1.0,1.0)),f.x), f.y); }
 float fbm3(vec2 p){ float s=0.0, a=0.5; for(int i=0;i<3;i++){ s+=a*vnoise(p); p=p*2.03+vec2(1.7,9.2); a*=0.5; } return s/0.875; }
 // a gust field that travels downwind across the valley: 0 = lull, 1 = gust
-float gustAt(vec2 p){ vec2 q = p*0.06 - uWind*uTime*0.5; float g = vnoise(q)*0.65 + vnoise(q*2.3+4.1)*0.35; return smoothstep(0.4,0.8,g); }
+float gustAt(vec2 p){ vec2 q = p*0.06 - uWind*uTime*0.32; float g = vnoise(q)*0.65 + vnoise(q*2.3+4.1)*0.35; return smoothstep(0.4,0.8,g); }
 float windK(){ return mix(1.0, 0.08, uCalm); }
 vec3 fogWorld(vec3 mv){ return transpose(mat3(viewMatrix)) * (mv - viewMatrix[3].xyz); }
 vec3 applyFog(vec3 col, vec3 wp){
@@ -132,6 +132,6 @@ function vnoiseG(x, y) {
 }
 export function gustAt(x, z) {
   const w = U.uWind.value, t = U.uTime.value;
-  const qx = x * 0.06 - w.x * t * 0.5, qz = z * 0.06 - w.y * t * 0.5;
+  const qx = x * 0.06 - w.x * t * 0.32, qz = z * 0.06 - w.y * t * 0.32;
   return sst(0.4, 0.8, vnoiseG(qx, qz) * 0.65 + vnoiseG(qx * 2.3 + 4.1, qz * 2.3 + 4.1) * 0.35);
 }
